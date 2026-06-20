@@ -2,7 +2,7 @@
   <div class="page-card">
     <div class="mb-5">
       <h1 class="text-xl font-semibold text-slate-800 m-0 mb-4">Jobs</h1>
-      <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-end gap-3 flex-wrap">
         <button type="button" class="btn-primary shrink-0 flex items-center gap-2" @click="openModal()">
           <Plus :size="16" />
           Add Job
@@ -11,6 +11,26 @@
           <Search :size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none" />
           <input v-model="search" type="text" placeholder="Search by customer, project, model, bill no..." class="search-bar-input" />
         </div>
+        <div>
+          <label for="dateFrom" class="filter-label">From</label>
+          <input id="dateFrom" v-model="dateFrom" type="date" class="filter-field" />
+        </div>
+        <div>
+          <label for="dateTo" class="filter-label">To</label>
+          <input id="dateTo" v-model="dateTo" type="date" class="filter-field" />
+        </div>
+        <div>
+          <label for="dcFilter" class="filter-label">Multiple DC</label>
+          <select id="dcFilter" v-model="dcFilter" class="filter-field min-w-[120px]">
+            <option value="all">All</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <button type="button" class="btn-secondary shrink-0 flex items-center gap-2" :disabled="!filteredJobs.length" @click="exportExcel">
+          <FileSpreadsheet :size="16" />
+          Export Excel
+        </button>
       </div>
     </div>
 
@@ -81,7 +101,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <div>
                 <label class="label-field uppercase">Width (mm)</label>
                 <input v-model="form.widthMm" type="number" min="0" step="0.01" placeholder="e.g. 2" class="input-field" />
@@ -89,6 +109,66 @@
               <div>
                 <label class="label-field uppercase">Price/Sqft (₹)</label>
                 <input v-model="form.pricePerSqft" type="number" min="0" step="0.01" placeholder="e.g. 50" class="input-field" />
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                <input
+                  v-model="form.isDC"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500"
+                  @change="onDcToggle"
+                />
+                <span class="label-field uppercase mb-0">Multiple DC</span>
+              </label>
+              <div v-if="form.isDC" class="mt-3 space-y-3">
+                <div
+                  v-for="(item, index) in form.dc"
+                  :key="index"
+                  class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end border border-slate-200 rounded-lg p-3"
+                >
+                  <div>
+                    <label class="label-field uppercase">Bill No</label>
+                    <input
+                      v-model="item.billNo"
+                      type="text"
+                      placeholder="e.g. INV-001"
+                      class="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label class="label-field uppercase">Qty</label>
+                    <input
+                      v-model="item.quantity"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="e.g. 10"
+                      class="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label class="label-field uppercase">Amount (₹)</label>
+                    <div class="input-field bg-slate-50 text-slate-700 cursor-not-allowed">
+                      {{ dcLineAmount(item) }}
+                    </div>
+                  </div>
+                  <button
+                    v-if="form.dc.length > 1"
+                    type="button"
+                    class="btn-secondary shrink-0 px-3 py-2"
+                    @click="removeDc(index)"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <button type="button" class="btn-secondary text-sm" @click="addDc">Add New</button>
+                <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600 mt-2 px-1">
+                  <span>Job qty: <strong class="text-slate-800">{{ form.quantity || 0 }}</strong></span>
+                  <span>Delivered: <strong class="text-slate-800">{{ deliveredDcQty }}</strong></span>
+                  <span>Remaining to deliver: <strong class="text-blue-600">{{ remainingDcQty }}</strong></span>
+                </div>
               </div>
             </div>
 
@@ -122,7 +202,7 @@
 
     <p v-if="loading" class="empty-msg">Loading...</p>
     <p v-else-if="error" class="error-msg">{{ error }}</p>
-    <p v-else-if="filteredJobs.length === 0" class="empty-msg">{{ search ? 'No jobs match your search.' : 'No jobs yet. Click "+ Add Job".' }}</p>
+    <p v-else-if="filteredJobs.length === 0" class="empty-msg">{{ emptyMessage }}</p>
     <div v-else>
       <p class="text-sm text-slate-500 mb-2 px-3">Total Jobs: <span class="font-medium text-slate-700">{{ filteredJobs.length }}</span></p>
       <div class="overflow-x-auto">
@@ -133,6 +213,7 @@
               <th>Project Name</th>
               <th>Date</th>
               <th>Model</th>
+              <th>Multiple DC</th>
               <th>Pixel</th>
               <th>No</th>
               <th>Bill No</th>
@@ -156,6 +237,7 @@
               <td>{{ job.projectName || '—' }}</td>
               <td>{{ formatDate(job.date) }}</td>
               <td>{{ job.model || '—' }}</td>
+              <td>{{ formatDc(job) }}</td>
               <td>{{ job.pixel || '—' }}</td>
               <td>{{ job.jobNumber || '—' }}</td>
               <td>{{ job.billNo || '—' }}</td>
@@ -165,10 +247,18 @@
               <td>{{ formatNum(job.totSqft) }}</td>
               <td>{{ formatNum(job.pricePerSqft) }}</td>
               <td class="text-emerald-600 font-medium">₹{{ formatNum(job.totalAmount) }}</td>
-              <td>
-                <div class="flex gap-2">
-                  <button type="button" class="btn-edit" @click="openModal(job)">Edit</button>
-                  <button type="button" class="btn-delete" @click="remove(job._id)">Delete</button>
+              <td class="relative">
+                <div class="action-menu">
+                  <button
+                    type="button"
+                    class="action-menu-btn"
+                    aria-label="Job actions"
+                    aria-haspopup="menu"
+                    :aria-expanded="openMenuId === job._id"
+                    @click="toggleMenu(job._id, $event)"
+                  >
+                    <Settings :size="16" />
+                  </button>
                 </div>
               </td>
             </tr>
@@ -176,35 +266,63 @@
         </table>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="openMenuId && openJob"
+        class="action-dropdown action-dropdown-portal"
+        :style="menuStyle"
+        role="menu"
+      >
+        <button type="button" class="action-dropdown-item" role="menuitem" @click="onEdit(openJob)">Edit</button>
+        <button type="button" class="action-dropdown-item action-dropdown-item-danger" role="menuitem" @click="onDelete(openJob._id)">Delete</button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { Plus, Search } from '@lucide/vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { Plus, Search, Settings, FileSpreadsheet } from '@lucide/vue'
 import { jobsApi } from '../api/jobs'
 import { customersApi } from '../api/customers'
 import SearchableSelect from '../components/SearchableSelect.vue'
 import { JOB_MODELS } from '../constants/jobModels'
 
-import { calcJobTotals, buildJobPayload } from '../utils/jobCalculations'
+import {
+  calcJobTotals,
+  buildJobPayload,
+  calcDcLineAmount,
+  calcDcDeliveredQty,
+  calcRemainingDeliverQty,
+} from '../utils/jobCalculations'
+import { exportJobsToCsv } from '../utils/exportJobs'
 
 const jobs = ref([])
 const customersCache = ref([])
 const loading = ref(true)
 const error = ref('')
 const search = ref('')
+const dateFrom = ref('')
+const dateTo = ref('')
+const dcFilter = ref('all')
 const showModal = ref(false)
 const editingId = ref(null)
 const editingCustomer = ref(null)
 const saving = ref(false)
 const formError = ref('')
+const openMenuId = ref(null)
+const menuStyle = ref({})
+
+const emptyDcItem = () => ({ billNo: '', quantity: '' })
 
 const emptyForm = () => ({
   date: new Date().toISOString().slice(0, 10),
   customer: '',
   projectName: '',
   model: '',
+  isDC: false,
+  dc: [emptyDcItem()],
   pixel: '',
   jobNumber: '',
   billNo: '',
@@ -222,21 +340,68 @@ const totSizeSqFt = computed(() => totals.value.totSizeSqFt)
 const totSqft = computed(() => totals.value.totSqft)
 const totalAmount = computed(() => totals.value.totalAmount)
 
+const deliveredDcQty = computed(() => calcDcDeliveredQty(form.dc))
+const remainingDcQty = computed(() => calcRemainingDeliverQty(form.quantity, form.dc))
+
+const hasActiveFilters = computed(() =>
+  !!search.value.trim() || !!dateFrom.value || !!dateTo.value || dcFilter.value !== 'all'
+)
+
+const emptyMessage = computed(() => {
+  if (jobs.value.length === 0) return 'No jobs yet. Click "+ Add Job".'
+  if (hasActiveFilters.value) return 'No jobs match your filters.'
+  return 'No jobs yet. Click "+ Add Job".'
+})
+
+function jobDateValue(job) {
+  if (!job.date) return null
+  const d = new Date(job.date)
+  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
+function parseFilterDate(dateStr) {
+  if (!dateStr) return null
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return Date.UTC(y, m - 1, d)
+}
+
+function matchesSearch(job, q) {
+  const haystack = [
+    customerName(job.customer),
+    job.projectName,
+    job.model,
+    ...(Array.isArray(job.dc)
+      ? job.dc.flatMap((item) => typeof item === 'string'
+        ? [item]
+        : [item.billNo, item.quantity, item.amount])
+      : []),
+    job.pixel,
+    job.jobNumber,
+    job.billNo,
+  ].filter(Boolean).join(' ').toLowerCase()
+  return haystack.includes(q)
+}
+
 const filteredJobs = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return jobs.value
+  const from = parseFilterDate(dateFrom.value)
+  const to = parseFilterDate(dateTo.value)
+
   return jobs.value.filter((job) => {
-    const haystack = [
-      customerName(job.customer),
-      job.projectName,
-      job.model,
-      job.pixel,
-      job.jobNumber,
-      job.billNo,
-    ].filter(Boolean).join(' ').toLowerCase()
-    return haystack.includes(q)
+    const jobDate = jobDateValue(job)
+    if (from != null && jobDate != null && jobDate < from) return false
+    if (to != null && jobDate != null && jobDate > to) return false
+    if (dcFilter.value === 'yes' && !job.isDC) return false
+    if (dcFilter.value === 'no' && job.isDC) return false
+    if (q && !matchesSearch(job, q)) return false
+    return true
   })
 })
+
+const openJob = computed(() =>
+  filteredJobs.value.find((j) => j._id === openMenuId.value)
+  ?? jobs.value.find((j) => j._id === openMenuId.value)
+)
 
 function formatNum(n) {
   const num = Number(n) || 0
@@ -264,6 +429,111 @@ function customerInitials(customer) {
 function formatDate(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString()
+}
+
+function formatDateExport(d) {
+  if (!d) return ''
+  return new Date(d).toLocaleDateString()
+}
+
+function formatNumExport(n) {
+  const num = Number(n) || 0
+  return num ? num.toFixed(2) : ''
+}
+
+function dcLineAmount(item) {
+  const amount = calcDcLineAmount(form, item.quantity)
+  return amount ? `₹${amount.toFixed(2)}` : '—'
+}
+
+function formatDcItem(item, job = null) {
+  if (typeof item === 'string') return item
+  const amount = job
+    ? calcDcLineAmount(job, item.quantity)
+    : Number(item.amount) || calcDcLineAmount(form, item.quantity)
+  const parts = []
+  if (item.billNo) parts.push(item.billNo)
+  if (item.quantity) parts.push(`Qty ${item.quantity}`)
+  if (amount) parts.push(`₹${amount.toFixed(2)}`)
+  return parts.join(' · ') || '—'
+}
+
+function formatDc(job) {
+  if (!job.isDC) return '—'
+  if (!Array.isArray(job.dc) || !job.dc.length) return 'Yes'
+  const lines = job.dc.map((item) => formatDcItem(item, job))
+  const remaining = job.remainingDeliverQty ?? calcRemainingDeliverQty(job.quantity, job.dc)
+  return `${lines.join('; ')} (Rem: ${remaining})`
+}
+
+function normalizeDcFormItems(dc) {
+  if (!Array.isArray(dc) || !dc.length) return [emptyDcItem()]
+  return dc.map((item) => {
+    if (typeof item === 'string') return { billNo: item, quantity: '' }
+    return {
+      billNo: item.billNo || '',
+      quantity: item.quantity ?? '',
+    }
+  })
+}
+
+function onDcToggle() {
+  if (form.isDC && !form.dc.length) form.dc.push(emptyDcItem())
+  if (!form.isDC) form.dc = [emptyDcItem()]
+}
+
+function addDc() {
+  form.dc.push(emptyDcItem())
+}
+
+function removeDc(index) {
+  form.dc.splice(index, 1)
+  if (!form.dc.length) form.dc.push(emptyDcItem())
+}
+
+function toggleMenu(id, event) {
+  event.stopPropagation()
+  if (openMenuId.value === id) {
+    closeMenu()
+    return
+  }
+  const rect = event.currentTarget.getBoundingClientRect()
+  const menuWidth = 120
+  menuStyle.value = {
+    top: `${rect.bottom + 4}px`,
+    left: `${Math.max(8, rect.right - menuWidth)}px`,
+  }
+  openMenuId.value = id
+}
+
+function closeMenu() {
+  openMenuId.value = null
+}
+
+function onEdit(job) {
+  closeMenu()
+  openModal(job)
+}
+
+function onDelete(id) {
+  closeMenu()
+  remove(id)
+}
+
+function onDocumentClick(event) {
+  if (!event.target.closest('.action-menu') && !event.target.closest('.action-dropdown')) {
+    closeMenu()
+  }
+}
+
+function exportExcel() {
+  if (!filteredJobs.value.length) return
+  exportJobsToCsv(filteredJobs.value, {
+    customerName,
+    formatDate: formatDateExport,
+    formatDc,
+    formatNum: formatNumExport,
+  })
 }
 
 async function loadCustomers({ search: q, page, limit }) {
@@ -299,6 +569,8 @@ function openModal(job = null) {
     customer: job.customer?._id || job.customer || '',
     projectName: job.projectName || '',
     model: job.model || '',
+    isDC: !!job.isDC,
+    dc: normalizeDcFormItems(job.dc),
     pixel: job.pixel || '',
     jobNumber: job.jobNumber || '',
     billNo: job.billNo || '',
@@ -324,6 +596,10 @@ async function save() {
   }
   if (!form.projectName?.trim()) {
     formError.value = 'Project name is required'
+    return
+  }
+  if (form.isDC && deliveredDcQty.value > Number(form.quantity || 0)) {
+    formError.value = 'DC delivered qty cannot exceed job quantity'
     return
   }
   saving.value = true
@@ -355,5 +631,12 @@ async function remove(id) {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  document.addEventListener('click', onDocumentClick)
+  loadData()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocumentClick)
+})
 </script>

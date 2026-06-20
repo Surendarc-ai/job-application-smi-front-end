@@ -108,10 +108,18 @@
                 <td>{{ customer.phone || '—' }}</td>
                 <td>{{ customer.address || '—' }}</td>
                 <td>{{ customer.gstNumber || '—' }}</td>
-                <td>
-                  <div class="flex gap-2">
-                    <button type="button" class="btn-edit" @click="openModal(customer)">Edit</button>
-                    <button type="button" class="btn-delete" @click="remove(customer._id)">Delete</button>
+                <td class="relative">
+                  <div class="action-menu">
+                    <button
+                      type="button"
+                      class="action-menu-btn"
+                      aria-label="Customer actions"
+                      aria-haspopup="menu"
+                      :aria-expanded="openMenuId === customer._id"
+                      @click="toggleMenu(customer._id, $event)"
+                    >
+                      <Settings :size="16" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -120,12 +128,24 @@
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="openMenuId && openCustomer"
+        class="action-dropdown action-dropdown-portal"
+        :style="menuStyle"
+        role="menu"
+      >
+        <button type="button" class="action-dropdown-item" role="menuitem" @click="onEdit(openCustomer)">Edit</button>
+        <button type="button" class="action-dropdown-item action-dropdown-item-danger" role="menuitem" @click="onDelete(openCustomer._id)">Delete</button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { Users } from '@lucide/vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { Users, Settings } from '@lucide/vue'
 import { customersApi } from '../api/customers'
 
 const customers = ref([])
@@ -137,6 +157,8 @@ const editingId = ref(null)
 const saving = ref(false)
 const formError = ref('')
 const formSuccess = ref('')
+const openMenuId = ref(null)
+const menuStyle = ref({})
 
 const emptyForm = () => ({
   firstName: '',
@@ -164,6 +186,11 @@ const filteredCustomers = computed(() => {
     return haystack.includes(q)
   })
 })
+
+const openCustomer = computed(() =>
+  filteredCustomers.value.find((c) => c._id === openMenuId.value)
+  ?? customers.value.find((c) => c._id === openMenuId.value)
+)
 
 function fullName(customer) {
   return [customer.firstName, customer.lastName].filter(Boolean).join(' ')
@@ -241,5 +268,47 @@ async function remove(id) {
   }
 }
 
-onMounted(fetchCustomers)
+function toggleMenu(id, event) {
+  event.stopPropagation()
+  if (openMenuId.value === id) {
+    closeMenu()
+    return
+  }
+  const rect = event.currentTarget.getBoundingClientRect()
+  const menuWidth = 120
+  menuStyle.value = {
+    top: `${rect.bottom + 4}px`,
+    left: `${Math.max(8, rect.right - menuWidth)}px`,
+  }
+  openMenuId.value = id
+}
+
+function closeMenu() {
+  openMenuId.value = null
+}
+
+function onEdit(customer) {
+  closeMenu()
+  openModal(customer)
+}
+
+function onDelete(id) {
+  closeMenu()
+  remove(id)
+}
+
+function onDocumentClick(event) {
+  if (!event.target.closest('.action-menu') && !event.target.closest('.action-dropdown')) {
+    closeMenu()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', onDocumentClick)
+  fetchCustomers()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocumentClick)
+})
 </script>
