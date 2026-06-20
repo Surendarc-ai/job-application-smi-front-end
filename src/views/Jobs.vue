@@ -143,6 +143,7 @@
                       v-model="item.quantity"
                       type="number"
                       min="0"
+                      :max="baseJobQty || undefined"
                       step="1"
                       placeholder="e.g. 10"
                       class="input-field"
@@ -169,6 +170,7 @@
                   <span>Delivered: <strong class="text-slate-800">{{ deliveredDcQty }}</strong></span>
                   <span>Remaining to deliver: <strong class="text-blue-600">{{ remainingDcQty }}</strong></span>
                 </div>
+                <p v-if="dcQtyError" class="error-msg mt-2">{{ dcQtyError }}</p>
               </div>
             </div>
 
@@ -295,6 +297,7 @@ import {
   calcDcLineAmount,
   calcDcDeliveredQty,
   calcRemainingDeliverQty,
+  getDcQuantityError,
 } from '../utils/jobCalculations'
 import { exportJobsToCsv } from '../utils/exportJobs'
 
@@ -342,6 +345,8 @@ const totalAmount = computed(() => totals.value.totalAmount)
 
 const deliveredDcQty = computed(() => calcDcDeliveredQty(form.dc))
 const remainingDcQty = computed(() => calcRemainingDeliverQty(form.quantity, form.dc))
+const baseJobQty = computed(() => Number(form.quantity) || 0)
+const dcQtyError = computed(() => (form.isDC ? getDcQuantityError(form.quantity, form.dc) : ''))
 
 const hasActiveFilters = computed(() =>
   !!search.value.trim() || !!dateFrom.value || !!dateTo.value || dcFilter.value !== 'all'
@@ -598,9 +603,12 @@ async function save() {
     formError.value = 'Project name is required'
     return
   }
-  if (form.isDC && deliveredDcQty.value > Number(form.quantity || 0)) {
-    formError.value = 'DC delivered qty cannot exceed job quantity'
-    return
+  if (form.isDC) {
+    const dcError = getDcQuantityError(form.quantity, form.dc)
+    if (dcError) {
+      formError.value = dcError
+      return
+    }
   }
   saving.value = true
   try {
