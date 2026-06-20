@@ -14,9 +14,9 @@
         <p v-if="error" class="error-msg mb-3">{{ error }}</p>
         <button type="submit" class="btn-primary w-full" :disabled="loading">Login</button>
       </form>
-      <p class="mt-4 text-sm text-center">
+      <!-- <p class="mt-4 text-sm text-center">
         <router-link to="/register" class="text-blue-500 hover:underline">Create account</router-link>
-      </p>
+      </p> -->
     </div>
   </div>
 </template>
