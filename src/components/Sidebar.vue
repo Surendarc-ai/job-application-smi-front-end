@@ -1,17 +1,38 @@
 <template>
-  <aside class="sidebar">
-    <div class="logo">Job App</div>
-    <nav class="nav">
-      <router-link to="/add_job" class="nav-link" active-class="active">Add job</router-link>
-      <router-link to="/manage_job" class="nav-link" active-class="active">Manage job</router-link>
+  <aside class="h-screen shrink-0 w-56 bg-slate-800 text-slate-200 flex flex-col py-4">
+    <div class="flex items-center gap-2 px-4 text-xl font-bold border-b border-slate-700 mb-4 pb-4">
+      <Briefcase :size="22" class="text-blue-400 shrink-0" />
+      <span>Job App</span>
+    </div>
+
+    <nav class="flex flex-col gap-1 px-2">
+      <router-link to="/customers" class="nav-link" title="Customers">
+        <Users :size="18" class="shrink-0" />
+        <span>Customers</span>
+      </router-link>
+      <router-link to="/jobs" class="nav-link" title="Jobs">
+        <Briefcase :size="18" class="shrink-0" />
+        <span>Jobs</span>
+      </router-link>
     </nav>
-    <div class="footer">
-      <button type="button" class="logout-btn" @click="logout">Logout</button>
+
+    <div class="mt-auto px-2 pt-4 border-t border-slate-700">
+      <p v-if="auth.user?.company" class="px-2 mb-2 text-xs text-slate-400 truncate">{{ auth.user.company }}</p>
+      <p v-else-if="auth.user" class="px-2 mb-2 text-xs text-slate-400 truncate">{{ auth.user.username }}</p>
+      <button
+        type="button"
+        class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-transparent border border-slate-600 text-slate-400 rounded-md text-sm hover:bg-slate-700 hover:text-slate-100 cursor-pointer"
+        @click="logout"
+      >
+        <LogOut :size="16" class="shrink-0" />
+        <span>Logout</span>
+      </button>
     </div>
   </aside>
 </template>
 
 <script setup>
+import { Briefcase, Users, LogOut } from '@lucide/vue'
 import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
 
@@ -23,61 +44,3 @@ function logout() {
   router.push({ name: 'Login' })
 }
 </script>
-
-<style scoped>
-.sidebar {
-  width: 220px;
-  background: #1e293b;
-  color: #e2e8f0;
-  display: flex;
-  flex-direction: column;
-  padding: 1rem 0;
-}
-.logo {
-  font-size: 1.25rem;
-  font-weight: 700;
-  padding: 0 1rem 1.5rem;
-  border-bottom: 1px solid #334155;
-  margin-bottom: 1rem;
-}
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0 0.5rem;
-}
-.nav-link {
-  padding: 0.6rem 1rem;
-  color: #94a3b8;
-  text-decoration: none;
-  border-radius: 6px;
-  transition: background 0.2s, color 0.2s;
-}
-.nav-link:hover {
-  background: #334155;
-  color: #e2e8f0;
-}
-.nav-link.active {
-  background: #3b82f6;
-  color: #fff;
-}
-.footer {
-  margin-top: auto;
-  padding: 1rem;
-  border-top: 1px solid #334155;
-}
-.logout-btn {
-  width: 100%;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid #475569;
-  color: #94a3b8;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-.logout-btn:hover {
-  background: #334155;
-  color: #e2e8f0;
-}
-</style>

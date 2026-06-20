@@ -3,8 +3,8 @@ import { useAuthStore } from '../stores/auth'
 import AppLayout from '../components/AppLayout.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
-import AddJob from '../views/AddJob.vue'
-import ManageJob from '../views/ManageJob.vue'
+import Customers from '../views/Customers.vue'
+import Jobs from '../views/Jobs.vue'
 
 const routes = [
   {
@@ -24,9 +24,9 @@ const routes = [
     component: AppLayout,
     meta: { requiresAuth: true },
     children: [
-      { path: '', redirect: '/add_job' },
-      { path: 'add_job', name: 'AddJob', component: AddJob },
-      { path: 'manage_job', name: 'ManageJob', component: ManageJob },
+      { path: '', redirect: '/customers' },
+      { path: 'customers', name: 'Customers', component: Customers },
+      { path: 'jobs', name: 'Jobs', component: Jobs },
     ],
   },
 ]
@@ -42,7 +42,7 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth && !hasToken) {
     next({ name: 'Login' })
   } else if (to.meta.public && hasToken && (to.name === 'Login' || to.name === 'Register')) {
-    next({ path: '/add_job' })
+    next({ path: '/customers' })
   } else {
     next()
   }

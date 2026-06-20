@@ -21,23 +21,23 @@ async function request(path, options = {}) {
   return data
 }
 
-export const jobsApi = {
+export const customersApi = {
   list() {
-    return request('/api/jobs')
+    return request('/api/customers')
   },
   create(body) {
-    return request('/api/jobs', {
+    return request('/api/customers', {
       method: 'POST',
       body: JSON.stringify(body),
     })
   },
   update(id, body) {
-    return request(`/api/jobs/${id}`, {
+    return request(`/api/customers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     })
   },
   delete(id) {
-    return request(`/api/jobs/${id}`, { method: 'DELETE' })
+    return request(`/api/customers/${id}`, { method: 'DELETE' })
   },
 }
