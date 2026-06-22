@@ -84,15 +84,35 @@
   }
 
   .modal-lg {
-    @apply max-w-3xl;
+    @apply max-w-4xl;
+  }
+
+  .job-form-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4;
   }
 
   .job-summary-box {
-    @apply grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-lg border border-emerald-200 bg-emerald-50/60;
+    @apply grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-lg border border-emerald-200 bg-emerald-50/60 items-stretch;
   }
 
   .job-summary-item {
     @apply text-center;
+  }
+
+  .job-summary-item-split {
+    @apply flex flex-col justify-between min-h-[9.5rem];
+  }
+
+  .job-summary-item-single {
+    @apply flex flex-col justify-end min-h-[9.5rem];
+  }
+
+  .job-summary-block {
+    @apply flex flex-col items-center;
+  }
+
+  .job-summary-hint {
+    @apply text-[10px] text-slate-500 block mb-1;
   }
 
   .job-summary-label {

@@ -27,9 +27,9 @@
             <option value="no">No</option>
           </select>
         </div>
-        <button type="button" class="btn-secondary shrink-0 flex items-center gap-2" :disabled="!filteredJobs.length" @click="exportExcel">
+        <button type="button" class="btn-secondary shrink-0 flex items-center gap-2" :disabled="exporting || !totalJobs" @click="exportExcel">
           <FileSpreadsheet :size="16" />
-          Export Excel
+          {{ exporting ? 'Exporting...' : 'Export Excel' }}
         </button>
       </div>
     </div>
@@ -45,12 +45,12 @@
           <fieldset class="border border-slate-200 rounded-xl p-5 mb-5">
             <legend class="text-sm font-semibold text-blue-500 px-2">Job Details</legend>
 
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+            <div class="job-form-grid">
               <div>
                 <label class="label-field uppercase">Date *</label>
                 <input v-model="form.date" type="date" required class="input-field" />
               </div>
-              <div class="sm:col-span-2">
+              <div class="lg:col-span-2">
                 <label class="label-field uppercase">Customer *</label>
                 <SearchableSelect
                   v-model="form.customer"
@@ -68,12 +68,12 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div class="job-form-grid">
               <div>
                 <label class="label-field uppercase">Models</label>
                 <select v-model="form.model" class="select-field">
                   <option value="">Select model...</option>
-                  <option v-for="m in JOB_MODELS" :key="m" :value="m">{{ m }}</option>
+                  <option v-for="m in jobModelOptions" :key="m._id" :value="m.name">{{ m.name }}</option>
                 </select>
               </div>
               <div>
@@ -81,30 +81,19 @@
                 <input v-model="form.pixel" type="text" placeholder="e.g. 300dpi" class="input-field" />
               </div>
               <div>
-                <label class="label-field uppercase">No</label>
-                <input v-model="form.jobNumber" type="text" placeholder="e.g. 001" class="input-field" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label class="label-field uppercase">Bill No</label>
-                <input v-model="form.billNo" type="text" placeholder="e.g. INV-001" class="input-field" />
-              </div>
-              <div>
                 <label class="label-field uppercase">Quantity</label>
                 <input v-model="form.quantity" type="number" min="0" step="1" placeholder="e.g. 10" class="input-field" />
               </div>
               <div>
-                <label class="label-field uppercase">Length (mm)</label>
-                <input v-model="form.lengthMm" type="number" min="0" step="0.01" placeholder="e.g. 4" class="input-field" />
+                <label class="label-field uppercase">Width (mm)</label>
+                <input v-model="form.widthMm" type="number" min="0" step="0.01" placeholder="e.g. 2" class="input-field" />
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div class="job-form-grid">
               <div>
-                <label class="label-field uppercase">Width (mm)</label>
-                <input v-model="form.widthMm" type="number" min="0" step="0.01" placeholder="e.g. 2" class="input-field" />
+                <label class="label-field uppercase">Length (mm)</label>
+                <input v-model="form.lengthMm" type="number" min="0" step="0.01" placeholder="e.g. 4" class="input-field" />
               </div>
               <div>
                 <label class="label-field uppercase">Price/Sqft (₹)</label>
@@ -126,43 +115,41 @@
                 <div
                   v-for="(item, index) in form.dc"
                   :key="index"
-                  class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end border border-slate-200 rounded-lg p-3"
+                  class="border border-slate-200 rounded-lg p-3"
                 >
-                  <div>
-                    <label class="label-field uppercase">Bill No</label>
-                    <input
-                      v-model="item.billNo"
-                      type="text"
-                      placeholder="e.g. INV-001"
-                      class="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label class="label-field uppercase">Qty</label>
-                    <input
-                      v-model="item.quantity"
-                      type="number"
-                      min="0"
-                      :max="baseJobQty || undefined"
-                      step="1"
-                      placeholder="e.g. 10"
-                      class="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label class="label-field uppercase">Amount (₹)</label>
-                    <div class="input-field bg-slate-50 text-slate-700 cursor-not-allowed">
-                      {{ dcLineAmount(item) }}
+                  <div class="job-form-grid mb-0">
+                    <div>
+                      <label class="label-field uppercase">Date</label>
+                      <input v-model="item.date" type="date" class="input-field" />
+                    </div>
+                    <div>
+                      <label class="label-field uppercase">Bill No</label>
+                      <input v-model="item.billNo" type="text" placeholder="e.g. INV-001" class="input-field" />
+                    </div>
+                    <div>
+                      <label class="label-field uppercase">Qty</label>
+                      <input
+                        v-model="item.quantity"
+                        type="number"
+                        min="0"
+                        :max="baseJobQty || undefined"
+                        step="1"
+                        placeholder="e.g. 10"
+                        class="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label class="label-field uppercase">Amount (₹)</label>
+                      <div class="input-field bg-slate-50 text-slate-700 cursor-not-allowed">
+                        {{ dcLineAmount(item) }}
+                      </div>
                     </div>
                   </div>
-                  <button
-                    v-if="form.dc.length > 1"
-                    type="button"
-                    class="btn-secondary shrink-0 px-3 py-2"
-                    @click="removeDc(index)"
-                  >
-                    Remove
-                  </button>
+                  <div v-if="form.dc.length > 1" class="flex justify-end mt-2">
+                    <button type="button" class="btn-secondary text-sm px-3 py-1.5" @click="removeDc(index)">
+                      Remove
+                    </button>
+                  </div>
                 </div>
                 <button type="button" class="btn-secondary text-sm" @click="addDc">Add New</button>
                 <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600 mt-2 px-1">
@@ -175,20 +162,31 @@
             </div>
 
             <div class="job-summary-box mt-5">
-              <div class="job-summary-item">
-                <span class="job-summary-label">Tot Size (Sq Ft)</span>
-                <span class="text-[10px] text-slate-500 block mb-1">L × W in mm</span>
-                <span class="job-summary-value">{{ formatNum(totSizeSqFt) }}</span>
+              <div class="job-summary-item job-summary-item-split">
+                <div class="job-summary-block">
+                  <span class="job-summary-label">Tot Size (Sq Ft)</span>
+                  <span class="job-summary-hint">W × L in mm</span>
+                  <span class="job-summary-value">{{ formatNum(totSizeSqFt) }}</span>
+                </div>
+                <div class="job-summary-block">
+                  <span class="job-summary-label">Rounded Tot Sq Ft</span>
+                  <span class="job-summary-hint">Rounded per unit</span>
+                  <span class="job-summary-value">{{ formatWhole(roundedTotSizeSqFt) }}</span>
+                </div>
               </div>
-              <div class="job-summary-item">
-                <span class="job-summary-label">Tot Sqft</span>
-                <span class="text-[10px] text-slate-500 block mb-1">Tot Size × Qty</span>
-                <span class="job-summary-value">{{ formatNum(totSqft) }}</span>
+              <div class="job-summary-item job-summary-item-single">
+                <div class="job-summary-block">
+                  <span class="job-summary-label">Tot Sqft</span>
+                  <span class="job-summary-hint">Rounded Tot Sq Ft × Qty</span>
+                  <span class="job-summary-value">{{ formatNum(totSqft) }}</span>
+                </div>
               </div>
-              <div class="job-summary-item">
-                <span class="job-summary-label">Total Amount (₹)</span>
-                <span class="text-[10px] text-slate-500 block mb-1">Tot Sqft × Price/Sqft</span>
-                <span class="job-summary-total">{{ formatNum(totalAmount) }}</span>
+              <div class="job-summary-item job-summary-item-single">
+                <div class="job-summary-block">
+                  <span class="job-summary-label">Total Amount (₹)</span>
+                  <span class="job-summary-hint">Tot Sqft × Price/Sqft</span>
+                  <span class="job-summary-total">{{ formatNum(totalAmount) }}</span>
+                </div>
               </div>
             </div>
           </fieldset>
@@ -204,9 +202,11 @@
 
     <p v-if="loading" class="empty-msg">Loading...</p>
     <p v-else-if="error" class="error-msg">{{ error }}</p>
-    <p v-else-if="filteredJobs.length === 0" class="empty-msg">{{ emptyMessage }}</p>
+    <p v-else-if="jobs.length === 0" class="empty-msg">{{ emptyMessage }}</p>
     <div v-else>
-      <p class="text-sm text-slate-500 mb-2 px-3">Total Jobs: <span class="font-medium text-slate-700">{{ filteredJobs.length }}</span></p>
+      <p class="text-sm text-slate-500 mb-2 px-3">
+        Total Jobs:<span class="font-medium text-slate-700">{{ totalJobs }}</span>
+      </p>
       <div class="overflow-x-auto">
         <table class="data-table">
           <thead>
@@ -220,8 +220,10 @@
               <th>No</th>
               <th>Bill No</th>
               <th>Qty</th>
-              <th>L (mm)</th>
               <th>W (mm)</th>
+              <th>L (mm)</th>
+              <th>Tot Size (Sq Ft)</th>
+              <th>Rounded Tot Sq Ft</th>
               <th>Tot Sqft</th>
               <th>Price/Sqft</th>
               <th>Total (₹)</th>
@@ -229,7 +231,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="job in filteredJobs" :key="job._id">
+            <tr v-for="job in jobs" :key="job._id">
               <td>
                 <div class="customer-cell">
                   <span class="customer-avatar">{{ customerInitials(job.customer) }}</span>
@@ -244,8 +246,10 @@
               <td>{{ job.jobNumber || '—' }}</td>
               <td>{{ job.billNo || '—' }}</td>
               <td>{{ job.quantity ?? '—' }}</td>
-              <td>{{ job.lengthMm ?? '—' }}</td>
               <td>{{ job.widthMm ?? '—' }}</td>
+              <td>{{ job.lengthMm ?? '—' }}</td>
+              <td>{{ formatNum(job.totSizeSqFt) }}</td>
+              <td>{{ formatWhole(jobRoundedTotSize(job)) }}</td>
               <td>{{ formatNum(job.totSqft) }}</td>
               <td>{{ formatNum(job.pricePerSqft) }}</td>
               <td class="text-emerald-600 font-medium">₹{{ formatNum(job.totalAmount) }}</td>
@@ -267,6 +271,10 @@
           </tbody>
         </table>
       </div>
+      <div ref="loadMoreSentinel" class="py-4 text-center text-sm text-slate-500">
+        <span v-if="loadingMore">Loading more...</span>
+        <span v-else-if="!hasMore">All jobs loaded</span>
+      </div>
     </div>
 
     <Teleport to="body">
@@ -284,12 +292,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { Plus, Search, Settings, FileSpreadsheet } from '@lucide/vue'
 import { jobsApi } from '../api/jobs'
 import { customersApi } from '../api/customers'
+import { modelsApi } from '../api/models'
 import SearchableSelect from '../components/SearchableSelect.vue'
-import { JOB_MODELS } from '../constants/jobModels'
 
 import {
   calcJobTotals,
@@ -301,10 +309,19 @@ import {
 } from '../utils/jobCalculations'
 import { exportJobsToCsv } from '../utils/exportJobs'
 
+const PAGE_SIZE = 30
+
 const jobs = ref([])
 const customersCache = ref([])
+const savedModels = ref([])
 const loading = ref(true)
+const loadingMore = ref(false)
+const exporting = ref(false)
 const error = ref('')
+const totalJobs = ref(0)
+const page = ref(1)
+const hasMore = ref(false)
+const loadMoreSentinel = ref(null)
 const search = ref('')
 const dateFrom = ref('')
 const dateTo = ref('')
@@ -317,29 +334,37 @@ const formError = ref('')
 const openMenuId = ref(null)
 const menuStyle = ref({})
 
-const emptyDcItem = () => ({ billNo: '', quantity: '' })
-
-const emptyForm = () => ({
-  date: new Date().toISOString().slice(0, 10),
-  customer: '',
-  projectName: '',
-  model: '',
-  isDC: false,
-  dc: [emptyDcItem()],
-  pixel: '',
-  jobNumber: '',
+const emptyDcItem = () => ({
+  date: '',
   billNo: '',
   quantity: '',
-  lengthMm: '',
-  widthMm: '',
-  pricePerSqft: '',
 })
+
+const emptyForm = () => {
+  const date = new Date().toISOString().slice(0, 10)
+  return {
+    date,
+    customer: '',
+    projectName: '',
+    model: '',
+    isDC: false,
+    dc: [emptyDcItem()],
+    pixel: '',
+    jobNumber: '',
+    billNo: '',
+    quantity: '',
+    lengthMm: '',
+    widthMm: '',
+    pricePerSqft: '',
+  }
+}
 
 const form = reactive(emptyForm())
 
 const totals = computed(() => calcJobTotals(form))
 
 const totSizeSqFt = computed(() => totals.value.totSizeSqFt)
+const roundedTotSizeSqFt = computed(() => totals.value.roundedTotSizeSqFt)
 const totSqft = computed(() => totals.value.totSqft)
 const totalAmount = computed(() => totals.value.totalAmount)
 
@@ -348,69 +373,113 @@ const remainingDcQty = computed(() => calcRemainingDeliverQty(form.quantity, for
 const baseJobQty = computed(() => Number(form.quantity) || 0)
 const dcQtyError = computed(() => (form.isDC ? getDcQuantityError(form.quantity, form.dc) : ''))
 
+const jobModelOptions = computed(() => {
+  const list = [...savedModels.value]
+  if (form.model && !list.some((m) => m.name === form.model)) {
+    list.unshift({ _id: `legacy-${form.model}`, name: form.model })
+  }
+  return list
+})
+
 const hasActiveFilters = computed(() =>
   !!search.value.trim() || !!dateFrom.value || !!dateTo.value || dcFilter.value !== 'all'
 )
 
 const emptyMessage = computed(() => {
-  if (jobs.value.length === 0) return 'No jobs yet. Click "+ Add Job".'
-  if (hasActiveFilters.value) return 'No jobs match your filters.'
-  return 'No jobs yet. Click "+ Add Job".'
+  if (!hasActiveFilters.value) return 'No jobs yet. Click "+ Add Job".'
+  return 'No jobs match your filters.'
 })
 
-function jobDateValue(job) {
-  if (!job.date) return null
-  const d = new Date(job.date)
-  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+const openJob = computed(() => jobs.value.find((j) => j._id === openMenuId.value))
+
+function filterParams() {
+  const params = { limit: PAGE_SIZE }
+  const q = search.value.trim()
+  if (q) params.search = q
+  if (dateFrom.value) params.from = dateFrom.value
+  if (dateTo.value) params.to = dateTo.value
+  if (dcFilter.value === 'yes') params.isDC = 'yes'
+  if (dcFilter.value === 'no') params.isDC = 'no'
+  return params
 }
 
-function parseFilterDate(dateStr) {
-  if (!dateStr) return null
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return Date.UTC(y, m - 1, d)
+async function fetchJobs({ reset = false } = {}) {
+  if (reset) {
+    if (loadingMore.value) return
+    loading.value = true
+    page.value = 1
+    hasMore.value = false
+  } else {
+    if (loading.value || loadingMore.value || !hasMore.value) return
+    loadingMore.value = true
+  }
+
+  error.value = ''
+  try {
+    const data = await jobsApi.list({ ...filterParams(), page: page.value })
+    const items = data.items || []
+    jobs.value = reset ? items : [...jobs.value, ...items]
+    totalJobs.value = data.total ?? jobs.value.length
+    hasMore.value = !!data.hasMore
+    if (hasMore.value) page.value += 1
+  } catch (e) {
+    error.value = e.message || 'Failed to load jobs'
+    if (reset) jobs.value = []
+  } finally {
+    loading.value = false
+    loadingMore.value = false
+  }
 }
 
-function matchesSearch(job, q) {
-  const haystack = [
-    customerName(job.customer),
-    job.projectName,
-    job.model,
-    ...(Array.isArray(job.dc)
-      ? job.dc.flatMap((item) => typeof item === 'string'
-        ? [item]
-        : [item.billNo, item.quantity, item.amount])
-      : []),
-    job.pixel,
-    job.jobNumber,
-    job.billNo,
-  ].filter(Boolean).join(' ').toLowerCase()
-  return haystack.includes(q)
+function reloadJobs() {
+  fetchJobs({ reset: true })
 }
 
-const filteredJobs = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  const from = parseFilterDate(dateFrom.value)
-  const to = parseFilterDate(dateTo.value)
+let scrollObserver = null
+let filterTimer = null
 
-  return jobs.value.filter((job) => {
-    const jobDate = jobDateValue(job)
-    if (from != null && jobDate != null && jobDate < from) return false
-    if (to != null && jobDate != null && jobDate > to) return false
-    if (dcFilter.value === 'yes' && !job.isDC) return false
-    if (dcFilter.value === 'no' && job.isDC) return false
-    if (q && !matchesSearch(job, q)) return false
-    return true
-  })
+function setupInfiniteScroll() {
+  scrollObserver?.disconnect()
+  const root = document.querySelector('main')
+  if (!loadMoreSentinel.value || !root) return
+
+  scrollObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) fetchJobs()
+    },
+    { root, rootMargin: '120px', threshold: 0 },
+  )
+  scrollObserver.observe(loadMoreSentinel.value)
+}
+
+watch([search, dateFrom, dateTo, dcFilter], () => {
+  clearTimeout(filterTimer)
+  filterTimer = setTimeout(reloadJobs, 300)
 })
 
-const openJob = computed(() =>
-  filteredJobs.value.find((j) => j._id === openMenuId.value)
-  ?? jobs.value.find((j) => j._id === openMenuId.value)
-)
+watch(loading, async (isLoading) => {
+  if (!isLoading) {
+    await nextTick()
+    setupInfiniteScroll()
+  }
+})
 
 function formatNum(n) {
   const num = Number(n) || 0
   return num ? num.toFixed(2) : '—'
+}
+
+function formatWhole(n) {
+  const num = Number(n)
+  if (!Number.isFinite(num)) return '—'
+  return String(Math.round(num))
+}
+
+function jobRoundedTotSize(job) {
+  if (job.roundedTotSizeSqFt != null && job.roundedTotSizeSqFt !== '') {
+    return job.roundedTotSizeSqFt
+  }
+  return Math.round(Number(job.totSizeSqFt) || 0)
 }
 
 function customerLabel(c) {
@@ -441,11 +510,6 @@ function formatDateExport(d) {
   return new Date(d).toLocaleDateString()
 }
 
-function formatNumExport(n) {
-  const num = Number(n) || 0
-  return num ? num.toFixed(2) : ''
-}
-
 function dcLineAmount(item) {
   const amount = calcDcLineAmount(form, item.quantity)
   return amount ? `₹${amount.toFixed(2)}` : '—'
@@ -457,6 +521,7 @@ function formatDcItem(item, job = null) {
     ? calcDcLineAmount(job, item.quantity)
     : Number(item.amount) || calcDcLineAmount(form, item.quantity)
   const parts = []
+  if (item.date) parts.push(formatDate(item.date))
   if (item.billNo) parts.push(item.billNo)
   if (item.quantity) parts.push(`Qty ${item.quantity}`)
   if (amount) parts.push(`₹${amount.toFixed(2)}`)
@@ -474,8 +539,11 @@ function formatDc(job) {
 function normalizeDcFormItems(dc) {
   if (!Array.isArray(dc) || !dc.length) return [emptyDcItem()]
   return dc.map((item) => {
-    if (typeof item === 'string') return { billNo: item, quantity: '' }
+    if (typeof item === 'string') {
+      return { date: '', billNo: item, quantity: '' }
+    }
     return {
+      date: item.date ? new Date(item.date).toISOString().slice(0, 10) : '',
       billNo: item.billNo || '',
       quantity: item.quantity ?? '',
     }
@@ -531,14 +599,31 @@ function onDocumentClick(event) {
   }
 }
 
-function exportExcel() {
-  if (!filteredJobs.value.length) return
-  exportJobsToCsv(filteredJobs.value, {
-    customerName,
-    formatDate: formatDateExport,
-    formatDc,
-    formatNum: formatNumExport,
-  })
+async function exportExcel() {
+  if (exporting.value || !totalJobs.value) return
+  exporting.value = true
+  error.value = ''
+  try {
+    const data = await jobsApi.listForExport(filterParams())
+    const items = data.items || []
+    if (!items.length) return
+    exportJobsToCsv(items, {
+      customerName,
+      formatDate: formatDateExport,
+    })
+  } catch (e) {
+    error.value = e.message || 'Failed to export jobs'
+  } finally {
+    exporting.value = false
+  }
+}
+
+async function loadModelOptions() {
+  try {
+    savedModels.value = await modelsApi.list()
+  } catch {
+    savedModels.value = []
+  }
 }
 
 async function loadCustomers({ search: q, page, limit }) {
@@ -553,20 +638,9 @@ async function loadCustomers({ search: q, page, limit }) {
   return { items: filtered.slice(start, start + limit), total: filtered.length }
 }
 
-async function loadData() {
-  loading.value = true
-  error.value = ''
-  try {
-    jobs.value = await jobsApi.list()
-  } catch (e) {
-    error.value = e.message || 'Failed to load jobs'
-  } finally {
-    loading.value = false
-  }
-}
-
 function openModal(job = null) {
   formError.value = ''
+  loadModelOptions()
   editingId.value = job?._id || null
   editingCustomer.value = job?.customer && typeof job.customer === 'object' ? job.customer : null
   Object.assign(form, job ? {
@@ -614,14 +688,12 @@ async function save() {
   try {
     const payload = buildJobPayload(form)
     if (editingId.value) {
-      const updated = await jobsApi.update(editingId.value, payload)
-      const idx = jobs.value.findIndex((j) => j._id === editingId.value)
-      if (idx !== -1) jobs.value[idx] = updated
+      await jobsApi.update(editingId.value, payload)
     } else {
-      const created = await jobsApi.create(payload)
-      jobs.value.unshift(created)
+      await jobsApi.create(payload)
     }
     closeModal()
+    reloadJobs()
   } catch (e) {
     formError.value = e.message || 'Failed to save job'
   } finally {
@@ -633,18 +705,22 @@ async function remove(id) {
   if (!confirm('Delete this job?')) return
   try {
     await jobsApi.delete(id)
-    jobs.value = jobs.value.filter((j) => j._id !== id)
+    reloadJobs()
   } catch (e) {
     error.value = e.message || 'Failed to delete job'
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener('click', onDocumentClick)
-  loadData()
+  await Promise.all([loadModelOptions(), fetchJobs({ reset: true })])
+  await nextTick()
+  setupInfiniteScroll()
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
+  clearTimeout(filterTimer)
+  scrollObserver?.disconnect()
 })
 </script>

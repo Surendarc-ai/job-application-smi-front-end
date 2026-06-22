@@ -10,6 +10,10 @@
         <Users :size="18" class="shrink-0" />
         <span>Customers</span>
       </router-link>
+      <router-link to="/models" class="nav-link" title="Models">
+        <Box :size="18" class="shrink-0" />
+        <span>Models</span>
+      </router-link>
       <router-link to="/jobs" class="nav-link" title="Jobs">
         <Briefcase :size="18" class="shrink-0" />
         <span>Jobs</span>
@@ -32,7 +36,7 @@
 </template>
 
 <script setup>
-import { Briefcase, Users, LogOut } from '@lucide/vue'
+import { Briefcase, Users, LogOut, Box } from '@lucide/vue'
 import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
 

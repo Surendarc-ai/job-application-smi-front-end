@@ -21,37 +21,23 @@ async function request(path, options = {}) {
   return data
 }
 
-function toQuery(params = {}) {
-  const q = new URLSearchParams()
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      q.set(key, String(value))
-    }
-  })
-  const s = q.toString()
-  return s ? `?${s}` : ''
-}
-
-export const jobsApi = {
-  list(params = {}) {
-    return request(`/api/jobs${toQuery(params)}`)
-  },
-  listForExport(params = {}) {
-    return request(`/api/jobs${toQuery({ ...params, export: 1 })}`)
+export const modelsApi = {
+  list() {
+    return request('/api/models')
   },
   create(body) {
-    return request('/api/jobs', {
+    return request('/api/models', {
       method: 'POST',
       body: JSON.stringify(body),
     })
   },
   update(id, body) {
-    return request(`/api/jobs/${id}`, {
+    return request(`/api/models/${id}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     })
   },
   delete(id) {
-    return request(`/api/jobs/${id}`, { method: 'DELETE' })
+    return request(`/api/models/${id}`, { method: 'DELETE' })
   },
 }

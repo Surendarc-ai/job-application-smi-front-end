@@ -5,6 +5,7 @@ import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import Customers from '../views/Customers.vue'
 import Jobs from '../views/Jobs.vue'
+import Models from '../views/Models.vue'
 
 const routes = [
   {
@@ -26,6 +27,7 @@ const routes = [
     children: [
       { path: '', redirect: '/customers' },
       { path: 'customers', name: 'Customers', component: Customers },
+      { path: 'models', name: 'Models', component: Models },
       { path: 'jobs', name: 'Jobs', component: Jobs },
     ],
   },
