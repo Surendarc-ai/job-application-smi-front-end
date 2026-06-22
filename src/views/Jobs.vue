@@ -171,7 +171,7 @@
                 <div class="job-summary-block">
                   <span class="job-summary-label">Rounded Tot Sq Ft</span>
                   <span class="job-summary-hint">Rounded per unit</span>
-                  <span class="job-summary-value">{{ formatWhole(roundedTotSizeSqFt) }}</span>
+                  <span class="job-summary-value">{{ formatRoundedTot(roundedTotSizeSqFt) }}</span>
                 </div>
               </div>
               <div class="job-summary-item job-summary-item-single">
@@ -249,7 +249,7 @@
               <td>{{ job.widthMm ?? '—' }}</td>
               <td>{{ job.lengthMm ?? '—' }}</td>
               <td>{{ formatNum(job.totSizeSqFt) }}</td>
-              <td>{{ formatWhole(jobRoundedTotSize(job)) }}</td>
+              <td>{{ formatRoundedTot(jobRoundedTotSize(job)) }}</td>
               <td>{{ formatNum(job.totSqft) }}</td>
               <td>{{ formatNum(job.pricePerSqft) }}</td>
               <td class="text-emerald-600 font-medium">₹{{ formatNum(job.totalAmount) }}</td>
@@ -306,6 +306,7 @@ import {
   calcDcDeliveredQty,
   calcRemainingDeliverQty,
   getDcQuantityError,
+  roundTotSizeSqFt,
 } from '../utils/jobCalculations'
 import { exportJobsToCsv } from '../utils/exportJobs'
 
@@ -469,17 +470,18 @@ function formatNum(n) {
   return num ? num.toFixed(2) : '—'
 }
 
-function formatWhole(n) {
+function formatRoundedTot(n) {
   const num = Number(n)
   if (!Number.isFinite(num)) return '—'
-  return String(Math.round(num))
+  if (Number.isInteger(num)) return String(num)
+  return num.toFixed(2).replace(/\.?0+$/, '')
 }
 
 function jobRoundedTotSize(job) {
   if (job.roundedTotSizeSqFt != null && job.roundedTotSizeSqFt !== '') {
     return job.roundedTotSizeSqFt
   }
-  return Math.round(Number(job.totSizeSqFt) || 0)
+  return roundTotSizeSqFt(job.totSizeSqFt)
 }
 
 function customerLabel(c) {
