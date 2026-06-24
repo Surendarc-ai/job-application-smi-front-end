@@ -1,9 +1,46 @@
-import { calcDcDeliveredQty, calcRemainingDeliverQty } from './jobCalculations'
+import {
+  calcDcDeliveredQty,
+  calcRemainingDeliverQty,
+  calcDcLineAmount,
+} from './jobCalculations'
 
 function escapeCsv(value) {
   const s = String(value ?? '')
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
   return s
+}
+
+function parseExportDate(value) {
+  if (value == null || value === '') return null
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date
+}
+
+function formatExportDate(d) {
+  const date = parseExportDate(d)
+  if (!date) return ''
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+function exportRowDate(job, item = null) {
+  if (item && typeof item === 'object' && item.date) {
+    const dcFormatted = formatExportDate(item.date)
+    if (dcFormatted) return dcFormatted
+  }
+  return formatExportDate(job.date)
+}
+
+function formatAmount(n) {
+  const num = Number(n) || 0
+  return num ? num.toFixed(2) : ''
 }
 
 function dcItems(job) {
@@ -13,6 +50,7 @@ function dcItems(job) {
     return item?.billNo || Number(item?.quantity)
   })
 }
+
 
 function dcBillNo(item) {
   if (typeof item === 'string') return item.trim()
@@ -24,9 +62,9 @@ function dcQty(item) {
   return item?.quantity ?? ''
 }
 
-function dcDate(item, formatDate) {
-  if (typeof item === 'object' && item?.date) return formatDate(item.date)
-  return ''
+function dcAmount(job, item) {
+  if (typeof item === 'object' && item?.amount) return item.amount
+  return calcDcLineAmount(job, dcQty(item))
 }
 
 function customerKey(job) {
@@ -36,28 +74,63 @@ function customerKey(job) {
   return ''
 }
 
+const EXPORT_COLUMN_COUNT = 11
+const PROJECT_SPACER_ROWS = 2
+
+function emptyRow() {
+  return Array(EXPORT_COLUMN_COUNT).fill('')
+}
+
+function addProjectSpacer(rows) {
+  for (let i = 0; i < PROJECT_SPACER_ROWS; i++) {
+    rows.push(emptyRow())
+  }
+}
+
 function sortJobsForExport(jobs, customerName) {
   return [...jobs].sort((a, b) => {
     const nameA = customerName(a.customer).toLowerCase()
     const nameB = customerName(b.customer).toLowerCase()
     if (nameA !== nameB) return nameA.localeCompare(nameB)
+    const projectA = (a.projectName || '').toLowerCase()
+    const projectB = (b.projectName || '').toLowerCase()
+    if (projectA !== projectB) return projectA.localeCompare(projectB)
     return new Date(b.date || 0) - new Date(a.date || 0)
   })
 }
 
-export function buildJobExportRows(jobs, { customerName, formatDate }) {
+export function buildJobExportRows(jobs, { customerName }) {
   const rows = []
   let lastCustomerKey = null
+  let lastProjectKey = null
+  let customerRowId = 0
+  let customerRowShown = false
   const sortedJobs = sortJobsForExport(jobs, customerName)
 
   for (const job of sortedJobs) {
     const key = customerKey(job)
-    const showCustomer = key !== lastCustomerKey
-    if (showCustomer) lastCustomerKey = key
-
-    const customerLabel = showCustomer ? customerName(job.customer) : ''
     const project = job.projectName || ''
-    const jobDate = formatDate(job.date)
+    const projectKey = `${key}::${project}`
+
+    if (rows.length > 0 && projectKey !== lastProjectKey) {
+      addProjectSpacer(rows)
+    }
+    lastProjectKey = projectKey
+
+    if (key !== lastCustomerKey) {
+      lastCustomerKey = key
+      customerRowId += 1
+      customerRowShown = false
+    }
+
+    const takeCustomerCells = () => {
+      if (customerRowShown) return { id: '', name: '' }
+      customerRowShown = true
+      return { id: String(customerRowId), name: customerName(job.customer) }
+    }
+
+    const width = job.widthMm ?? ''
+    const height = job.lengthMm ?? ''
     const totalQty = Number(job.quantity) || 0
     const delivered = calcDcDeliveredQty(job.dc)
     const remaining = job.remainingDeliverQty ?? calcRemainingDeliverQty(job.quantity, job.dc)
@@ -66,50 +139,62 @@ export function buildJobExportRows(jobs, { customerName, formatDate }) {
     if (items.length) {
       items.forEach((item, index) => {
         const isFirstLine = index === 0
+        const { id, name } = takeCustomerCells()
         rows.push([
-          isFirstLine ? customerLabel : '',
+          id,
+          name,
+          exportRowDate(job, item),
           isFirstLine ? project : '',
-          dcDate(item, formatDate),
-          dcBillNo(item),
+          width,
+          height,
           dcQty(item),
-          isFirstLine ? totalQty : '',
+          dcBillNo(item),
           isFirstLine ? delivered : '',
           isFirstLine ? remaining : '',
+          formatAmount(dcAmount(job, item)),
         ])
       })
       continue
     }
 
+    const { id, name } = takeCustomerCells()
     rows.push([
-      customerLabel,
+      id,
+      name,
+      exportRowDate(job),
       project,
-      jobDate,
+      width,
+      height,
+      totalQty,
       job.billNo || '',
-      totalQty,
-      totalQty,
       job.isDC ? delivered : 0,
       job.isDC ? remaining : totalQty,
+      formatAmount(job.totalAmount),
     ])
   }
 
   return rows
 }
 
-export function exportJobsToCsv(jobs, { customerName, formatDate }) {
-  const headers = [
-    'Customer',
-    'Project Name',
-    'Date',
-    'Bill No',
-    'Qty',
-    'Total Qty',
-    'Delivered',
-    'Remaining',
-  ]
+export const EXPORT_HEADERS = [
+  'Row ID',
+  'Customer',
+  'Date',
+  'Project Name',
+  'W',
+  'H',
+  'Qty',
+  'Bill',
+  'Delivered',
+  'Remaining',
+  'Amount',
+]
 
-  const rows = buildJobExportRows(jobs, { customerName, formatDate })
+export function exportJobsToCsv(jobs, { customerName, includeHeaders = true }) {
+  const rows = buildJobExportRows(jobs, { customerName })
+  const allRows = includeHeaders ? [EXPORT_HEADERS, ...rows] : rows
 
-  const csv = [headers, ...rows]
+  const csv = allRows
     .map((row) => row.map(escapeCsv).join(','))
     .join('\n')
 

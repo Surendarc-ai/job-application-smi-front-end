@@ -132,7 +132,6 @@
                         v-model="item.quantity"
                         type="number"
                         min="0"
-                        :max="baseJobQty || undefined"
                         step="1"
                         placeholder="e.g. 10"
                         class="input-field"
@@ -155,9 +154,8 @@
                 <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600 mt-2 px-1">
                   <span>Job qty: <strong class="text-slate-800">{{ form.quantity || 0 }}</strong></span>
                   <span>Delivered: <strong class="text-slate-800">{{ deliveredDcQty }}</strong></span>
-                  <span>Remaining to deliver: <strong class="text-blue-600">{{ remainingDcQty }}</strong></span>
+                  <span>Remaining to deliver: <strong :class="remainingDcQty < 0 ? 'text-red-600' : 'text-blue-600'">{{ remainingDcQty }}</strong></span>
                 </div>
-                <p v-if="dcQtyError" class="error-msg mt-2">{{ dcQtyError }}</p>
               </div>
             </div>
 
@@ -305,7 +303,6 @@ import {
   calcDcLineAmount,
   calcDcDeliveredQty,
   calcRemainingDeliverQty,
-  getDcQuantityError,
   roundTotSizeSqFt,
 } from '../utils/jobCalculations'
 import { exportJobsToCsv } from '../utils/exportJobs'
@@ -371,8 +368,6 @@ const totalAmount = computed(() => totals.value.totalAmount)
 
 const deliveredDcQty = computed(() => calcDcDeliveredQty(form.dc))
 const remainingDcQty = computed(() => calcRemainingDeliverQty(form.quantity, form.dc))
-const baseJobQty = computed(() => Number(form.quantity) || 0)
-const dcQtyError = computed(() => (form.isDC ? getDcQuantityError(form.quantity, form.dc) : ''))
 
 const jobModelOptions = computed(() => {
   const list = [...savedModels.value]
@@ -507,11 +502,6 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString()
 }
 
-function formatDateExport(d) {
-  if (!d) return ''
-  return new Date(d).toLocaleDateString()
-}
-
 function dcLineAmount(item) {
   const amount = calcDcLineAmount(form, item.quantity)
   return amount ? `₹${amount.toFixed(2)}` : '—'
@@ -609,10 +599,7 @@ async function exportExcel() {
     const data = await jobsApi.listForExport(filterParams())
     const items = data.items || []
     if (!items.length) return
-    exportJobsToCsv(items, {
-      customerName,
-      formatDate: formatDateExport,
-    })
+    exportJobsToCsv(items, { customerName })
   } catch (e) {
     error.value = e.message || 'Failed to export jobs'
   } finally {
@@ -678,13 +665,6 @@ async function save() {
   if (!form.projectName?.trim()) {
     formError.value = 'Project name is required'
     return
-  }
-  if (form.isDC) {
-    const dcError = getDcQuantityError(form.quantity, form.dc)
-    if (dcError) {
-      formError.value = dcError
-      return
-    }
   }
   saving.value = true
   try {
