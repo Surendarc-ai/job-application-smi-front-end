@@ -30,14 +30,6 @@ function formatExportDate(d) {
   return `${day}/${month}/${year}`
 }
 
-function exportRowDate(job, item = null) {
-  if (item && typeof item === 'object' && item.date) {
-    const dcFormatted = formatExportDate(item.date)
-    if (dcFormatted) return dcFormatted
-  }
-  return formatExportDate(job.date)
-}
-
 function formatAmount(n) {
   const num = Number(n) || 0
   return num ? num.toFixed(2) : ''
@@ -51,15 +43,19 @@ function dcItems(job) {
   })
 }
 
+function dcQty(item) {
+  if (typeof item === 'string') return ''
+  return item?.quantity ?? ''
+}
 
 function dcBillNo(item) {
   if (typeof item === 'string') return item.trim()
   return item?.billNo || ''
 }
 
-function dcQty(item) {
-  if (typeof item === 'string') return ''
-  return item?.quantity ?? ''
+function dcLineDate(item) {
+  if (typeof item === 'object' && item?.date) return formatExportDate(item.date)
+  return ''
 }
 
 function dcAmount(job, item) {
@@ -74,7 +70,7 @@ function customerKey(job) {
   return ''
 }
 
-const EXPORT_COLUMN_COUNT = 11
+const EXPORT_COLUMN_COUNT = 12
 const PROJECT_SPACER_ROWS = 2
 
 function emptyRow() {
@@ -132,55 +128,58 @@ export function buildJobExportRows(jobs, { customerName }) {
     const width = job.widthMm ?? ''
     const height = job.lengthMm ?? ''
     const totalQty = Number(job.quantity) || 0
-    const delivered = calcDcDeliveredQty(job.dc)
-    const remaining = job.remainingDeliverQty ?? calcRemainingDeliverQty(job.quantity, job.dc)
+    const delivered = job.isDC ? calcDcDeliveredQty(job.dc) : 0
+    const remaining = job.isDC
+      ? (job.remainingDeliverQty ?? calcRemainingDeliverQty(job.quantity, job.dc))
+      : totalQty
     const items = dcItems(job)
-
-    if (items.length) {
-      items.forEach((item, index) => {
-        const isFirstLine = index === 0
-        const { id, name } = takeCustomerCells()
-        rows.push([
-          id,
-          name,
-          exportRowDate(job, item),
-          isFirstLine ? project : '',
-          width,
-          height,
-          dcQty(item),
-          dcBillNo(item),
-          isFirstLine ? delivered : '',
-          isFirstLine ? remaining : '',
-          formatAmount(dcAmount(job, item)),
-        ])
-      })
-      continue
-    }
-
     const { id, name } = takeCustomerCells()
+    const pixel = job.pixel || ''
+
+    // Main job row
     rows.push([
       id,
       name,
-      exportRowDate(job),
+      formatExportDate(job.date),
       project,
-      width,
+      pixel,
+      width,      
       height,
       totalQty,
       job.billNo || '',
-      job.isDC ? delivered : 0,
-      job.isDC ? remaining : totalQty,
+      delivered,
+      remaining,
       formatAmount(job.totalAmount),
     ])
+
+    // DC sub-rows: date, bill, qty, amount
+    for (const item of items) {
+      rows.push([
+        '',
+        '',
+        dcLineDate(item),
+        '',
+        '',
+        '',
+        '',
+        dcQty(item),
+        dcBillNo(item),
+        '',
+        '',
+        formatAmount(dcAmount(job, item)),
+      ])
+    }
   }
 
   return rows
 }
 
 export const EXPORT_HEADERS = [
-  'Row ID',
-  'Customer',
-  'Date',
+  'No.',
+  'Customer Name',
+  'Job Date',
   'Project Name',
+  'Pixel',
   'W',
   'H',
   'Qty',
