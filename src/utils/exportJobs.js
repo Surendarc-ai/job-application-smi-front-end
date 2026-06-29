@@ -85,13 +85,14 @@ function addProjectSpacer(rows) {
 
 function sortJobsForExport(jobs, customerName) {
   return [...jobs].sort((a, b) => {
+    const dateDiff = new Date(b.date || 0) - new Date(a.date || 0)
+    if (dateDiff !== 0) return dateDiff
     const nameA = customerName(a.customer).toLowerCase()
     const nameB = customerName(b.customer).toLowerCase()
     if (nameA !== nameB) return nameA.localeCompare(nameB)
     const projectA = (a.projectName || '').toLowerCase()
     const projectB = (b.projectName || '').toLowerCase()
-    if (projectA !== projectB) return projectA.localeCompare(projectB)
-    return new Date(b.date || 0) - new Date(a.date || 0)
+    return projectA.localeCompare(projectB)
   })
 }
 
