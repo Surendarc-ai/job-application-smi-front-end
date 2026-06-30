@@ -10,7 +10,7 @@
       </div>
       <ul class="max-h-56 overflow-y-auto py-1">
         <li v-if="loading" class="px-3 py-2 text-sm text-slate-500">Loading...</li>
-        <li v-for="opt in visibleOptions" :key="String(opt.value)" class="px-3 py-2 text-sm cursor-pointer hover:bg-slate-50" :class="{ 'bg-blue-50 text-blue-700 font-medium': isSelected(opt.value) }" @click="selectOption(opt)">{{ opt.label }}</li>
+        <li v-for="opt in visibleOptions" :key="String(opt.value)" class="px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 whitespace-normal break-words" :class="{ 'bg-blue-50 text-blue-700 font-medium': isSelected(opt.value) }" @click="selectOption(opt)">{{ opt.label }}</li>
         <li v-if="!loading && visibleOptions.length === 0" class="px-3 py-2 text-sm text-slate-500">No results found</li>
       </ul>
     </div>
@@ -63,7 +63,11 @@ function normalizeOption(item) {
 }
 function isSelected(value) { return String(value) === String(props.modelValue) }
 function syncSelectedFromValue() {
-  if (props.modelValue === '' || props.modelValue == null) { selectedOption.value = null; return }
+  if (props.modelValue === '' || props.modelValue == null) {
+    const emptyOption = visibleOptions.value.find((opt) => opt.value === '' || opt.value == null)
+    selectedOption.value = emptyOption || null
+    return
+  }
   const found = visibleOptions.value.find((opt) => isSelected(opt.value)) || (props.initialOption ? normalizeOption(props.initialOption) : null)
   selectedOption.value = found
 }
@@ -87,6 +91,7 @@ function selectOption(opt) { selectedOption.value = opt; emit('update:modelValue
 function onDocumentClick(e) { if (rootRef.value && !rootRef.value.contains(e.target)) close() }
 watch(search, () => { if (open.value && isAsync.value) fetchAsyncOptions(true) })
 watch(() => props.modelValue, syncSelectedFromValue)
+watch(() => props.options, syncSelectedFromValue, { deep: true })
 watch(() => props.initialOption, syncSelectedFromValue, { immediate: true })
 onMounted(() => { document.addEventListener('click', onDocumentClick); syncSelectedFromValue() })
 onUnmounted(() => document.removeEventListener('click', onDocumentClick))

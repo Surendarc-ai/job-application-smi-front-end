@@ -4,12 +4,14 @@ import { authApi } from '../api/auth'
 
 const TOKEN_KEY = 'jobapp_token'
 const USER_KEY = 'jobapp_user'
+const SUPER_ADMIN_ROLE = 'Super Admin'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem(TOKEN_KEY))
   const user = ref(JSON.parse(localStorage.getItem(USER_KEY) || 'null'))
 
   const isAuthenticated = computed(() => !!token.value)
+  const isSuperAdmin = computed(() => user.value?.role === SUPER_ADMIN_ROLE)
 
   function setAuth(newToken, newUser) {
     token.value = newToken
@@ -33,5 +35,5 @@ export const useAuthStore = defineStore('auth', () => {
     setAuth(null, null)
   }
 
-  return { token, user, isAuthenticated, login, logout, setAuth }
+  return { token, user, isAuthenticated, isSuperAdmin, login, logout, setAuth }
 })

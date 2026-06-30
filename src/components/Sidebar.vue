@@ -18,6 +18,10 @@
         <Briefcase :size="18" class="shrink-0" />
         <span>Jobs</span>
       </router-link>
+      <router-link v-if="auth.isSuperAdmin" to="/backup" class="nav-link" title="Backup">
+        <Database :size="18" class="shrink-0" />
+        <span>Backup</span>
+      </router-link>
     </nav>
 
     <div class="mt-auto px-2 pt-4 border-t border-slate-700">
@@ -36,7 +40,7 @@
 </template>
 
 <script setup>
-import { Briefcase, Users, LogOut, Box } from '@lucide/vue'
+import { Briefcase, Users, LogOut, Box, Database } from '@lucide/vue'
 import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
 

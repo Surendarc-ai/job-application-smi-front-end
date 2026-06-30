@@ -19,6 +19,15 @@
           <label for="dateTo" class="filter-label">To</label>
           <input id="dateTo" v-model="dateTo" type="date" class="filter-field" />
         </div>
+        <div class="filter-customer">
+          <label class="filter-label">Customer</label>
+          <SearchableSelect
+            v-model="customerFilter"
+            placeholder="All"
+            search-placeholder="Search customer..."
+            :options="customerFilterOptionsList"
+          />
+        </div>
         <div>
           <label for="dcFilter" class="filter-label">Multiple DC</label>
           <select id="dcFilter" v-model="dcFilter" class="filter-field min-w-[120px]">
@@ -215,11 +224,9 @@
               <th>Model</th>
               <th>Multiple DC</th>
               <th>Pixel</th>
-              <th>No</th>
-              <th>Bill No</th>
-              <th>Qty</th>
               <th>W (mm)</th>
               <th>L (mm)</th>
+              <th>Qty</th>
               <th>Tot Size (Sq Ft)</th>
               <th>Rounded Tot Sq Ft</th>
               <th>Tot Sqft</th>
@@ -241,11 +248,9 @@
               <td>{{ job.model || '—' }}</td>
               <td>{{ formatDc(job) }}</td>
               <td>{{ job.pixel || '—' }}</td>
-              <td>{{ job.jobNumber || '—' }}</td>
-              <td>{{ job.billNo || '—' }}</td>
-              <td>{{ job.quantity ?? '—' }}</td>
               <td>{{ job.widthMm ?? '—' }}</td>
               <td>{{ job.lengthMm ?? '—' }}</td>
+              <td>{{ job.quantity ?? '—' }}</td>
               <td>{{ formatNum(job.totSizeSqFt) }}</td>
               <td>{{ formatRoundedTot(jobRoundedTotSize(job)) }}</td>
               <td>{{ formatNum(job.totSqft) }}</td>
@@ -323,6 +328,7 @@ const loadMoreSentinel = ref(null)
 const search = ref('')
 const dateFrom = ref('')
 const dateTo = ref('')
+const customerFilter = ref('')
 const dcFilter = ref('all')
 const showModal = ref(false)
 const editingId = ref(null)
@@ -377,8 +383,22 @@ const jobModelOptions = computed(() => {
   return list
 })
 
+const customerFilterOptions = computed(() =>
+  [...customersCache.value].sort((a, b) =>
+    customerLabel(a).toLowerCase().localeCompare(customerLabel(b).toLowerCase()),
+  ),
+)
+
+const customerFilterOptionsList = computed(() => [
+  { value: '', label: 'All' },
+  ...customerFilterOptions.value.map((c) => ({
+    value: c._id,
+    label: customerLabel(c),
+  })),
+])
+
 const hasActiveFilters = computed(() =>
-  !!search.value.trim() || !!dateFrom.value || !!dateTo.value || dcFilter.value !== 'all'
+  !!search.value.trim() || !!dateFrom.value || !!dateTo.value || !!customerFilter.value || dcFilter.value !== 'all'
 )
 
 const emptyMessage = computed(() => {
@@ -394,6 +414,7 @@ function filterParams() {
   if (q) params.search = q
   if (dateFrom.value) params.from = dateFrom.value
   if (dateTo.value) params.to = dateTo.value
+  if (customerFilter.value) params.customer = customerFilter.value
   if (dcFilter.value === 'yes') params.isDC = 'yes'
   if (dcFilter.value === 'no') params.isDC = 'no'
   return params
@@ -448,7 +469,7 @@ function setupInfiniteScroll() {
   scrollObserver.observe(loadMoreSentinel.value)
 }
 
-watch([search, dateFrom, dateTo, dcFilter], () => {
+watch([search, dateFrom, dateTo, customerFilter, dcFilter], () => {
   clearTimeout(filterTimer)
   filterTimer = setTimeout(reloadJobs, 300)
 })
@@ -615,10 +636,14 @@ async function loadModelOptions() {
   }
 }
 
-async function loadCustomers({ search: q, page, limit }) {
+async function ensureCustomersLoaded() {
   if (!customersCache.value.length) {
     customersCache.value = await customersApi.list()
   }
+}
+
+async function loadCustomers({ search: q, page, limit }) {
+  await ensureCustomersLoaded()
   const term = q.toLowerCase()
   const filtered = term
     ? customersCache.value.filter((c) => customerLabel(c).toLowerCase().includes(term))
@@ -695,7 +720,7 @@ async function remove(id) {
 
 onMounted(async () => {
   document.addEventListener('click', onDocumentClick)
-  await Promise.all([loadModelOptions(), fetchJobs({ reset: true })])
+  await Promise.all([loadModelOptions(), ensureCustomersLoaded(), fetchJobs({ reset: true })])
   await nextTick()
   setupInfiniteScroll()
 })

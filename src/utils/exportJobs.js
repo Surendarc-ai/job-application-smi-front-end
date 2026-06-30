@@ -137,14 +137,13 @@ export function buildJobExportRows(jobs, { customerName }) {
     const { id, name } = takeCustomerCells()
     const pixel = job.pixel || ''
 
-    // Main job row
     rows.push([
       id,
       name,
       formatExportDate(job.date),
       project,
       pixel,
-      width,      
+      width,
       height,
       totalQty,
       job.billNo || '',
@@ -153,7 +152,6 @@ export function buildJobExportRows(jobs, { customerName }) {
       formatAmount(job.totalAmount),
     ])
 
-    // DC sub-rows: date, bill, qty, amount
     for (const item of items) {
       rows.push([
         '',
