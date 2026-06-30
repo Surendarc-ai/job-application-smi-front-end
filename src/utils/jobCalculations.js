@@ -2,13 +2,13 @@
 // 1 sq ft = 304.8 mm × 304.8 mm = 92903.04 mm²
 export const MM2_TO_SQFT = 1 / 92903.04;
 
-// Round up to next whole number only when decimal part is .90 or higher (e.g. 12.90 → 13).
-// Values like 12.5 stay as 12.5.
+// Round up to next whole number when decimal part is .5 or higher (e.g. 11.5 → 12).
+// Below .5 keep the value as is (e.g. 11.4 stays 11.4).
 export function roundTotSizeSqFt(value) {
   const num = Number(value) || 0;
   const base = Math.round(num * 10000) / 10000;
-  const decimalPart = Math.round((base % 1) * 100);
-  if (decimalPart >= 90) {
+  const fractional = base - Math.floor(base);
+  if (fractional >= 0.5) {
     return Math.ceil(base - 1e-9);
   }
   return Math.round(base * 100) / 100;

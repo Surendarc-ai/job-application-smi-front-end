@@ -9,7 +9,7 @@
         </button>
         <div class="search-bar">
           <Search :size="16" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none" />
-          <input v-model="search" type="text" placeholder="Search by customer, project, model, bill no..." class="search-bar-input" />
+          <input v-model="search" type="text" placeholder="W L mm (e.g. 960 1280) or customer, project, bill no..." class="search-bar-input" />
         </div>
         <div>
           <label for="dateFrom" class="filter-label">From</label>
@@ -27,14 +27,6 @@
             search-placeholder="Search customer..."
             :options="customerFilterOptionsList"
           />
-        </div>
-        <div>
-          <label for="dcFilter" class="filter-label">Multiple DC</label>
-          <select id="dcFilter" v-model="dcFilter" class="filter-field min-w-[120px]">
-            <option value="all">All</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
         </div>
         <button type="button" class="btn-secondary shrink-0 flex items-center gap-2" :disabled="exporting || !totalJobs" @click="exportExcel">
           <FileSpreadsheet :size="16" />
@@ -310,7 +302,7 @@ import {
   calcRemainingDeliverQty,
   roundTotSizeSqFt,
 } from '../utils/jobCalculations'
-import { exportJobsToCsv } from '../utils/exportJobs'
+import { exportJobsToExcel } from '../utils/exportJobs'
 
 const PAGE_SIZE = 30
 
@@ -329,7 +321,6 @@ const search = ref('')
 const dateFrom = ref('')
 const dateTo = ref('')
 const customerFilter = ref('')
-const dcFilter = ref('all')
 const showModal = ref(false)
 const editingId = ref(null)
 const editingCustomer = ref(null)
@@ -398,7 +389,7 @@ const customerFilterOptionsList = computed(() => [
 ])
 
 const hasActiveFilters = computed(() =>
-  !!search.value.trim() || !!dateFrom.value || !!dateTo.value || !!customerFilter.value || dcFilter.value !== 'all'
+  !!search.value.trim() || !!dateFrom.value || !!dateTo.value || !!customerFilter.value
 )
 
 const emptyMessage = computed(() => {
@@ -415,8 +406,6 @@ function filterParams() {
   if (dateFrom.value) params.from = dateFrom.value
   if (dateTo.value) params.to = dateTo.value
   if (customerFilter.value) params.customer = customerFilter.value
-  if (dcFilter.value === 'yes') params.isDC = 'yes'
-  if (dcFilter.value === 'no') params.isDC = 'no'
   return params
 }
 
@@ -469,7 +458,7 @@ function setupInfiniteScroll() {
   scrollObserver.observe(loadMoreSentinel.value)
 }
 
-watch([search, dateFrom, dateTo, customerFilter, dcFilter], () => {
+watch([search, dateFrom, dateTo, customerFilter], () => {
   clearTimeout(filterTimer)
   filterTimer = setTimeout(reloadJobs, 300)
 })
@@ -620,7 +609,7 @@ async function exportExcel() {
     const data = await jobsApi.listForExport(filterParams())
     const items = data.items || []
     if (!items.length) return
-    exportJobsToCsv(items, { customerName })
+    await exportJobsToExcel(items, { customerName })
   } catch (e) {
     error.value = e.message || 'Failed to export jobs'
   } finally {

@@ -1,14 +1,9 @@
+import ExcelJS from 'exceljs'
 import {
   calcDcDeliveredQty,
   calcRemainingDeliverQty,
   calcDcLineAmount,
 } from './jobCalculations'
-
-function escapeCsv(value) {
-  const s = String(value ?? '')
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
-  return s
-}
 
 function parseExportDate(value) {
   if (value == null || value === '') return null
@@ -71,16 +66,27 @@ function customerKey(job) {
 }
 
 const EXPORT_COLUMN_COUNT = 12
-const PROJECT_SPACER_ROWS = 2
+const GROUP_SPACER_ROWS = 2
 
 function emptyRow() {
   return Array(EXPORT_COLUMN_COUNT).fill('')
 }
 
-function addProjectSpacer(rows) {
-  for (let i = 0; i < PROJECT_SPACER_ROWS; i++) {
+function addGroupSpacer(rows) {
+  for (let i = 0; i < GROUP_SPACER_ROWS; i++) {
     rows.push(emptyRow())
   }
+}
+
+function buildExportGroupKey(job) {
+  return [
+    customerKey(job),
+    formatExportDate(job.date),
+    job.projectName || '',
+    job.widthMm ?? '',
+    job.lengthMm ?? '',
+    Number(job.quantity) || 0,
+  ].join('::')
 }
 
 function sortJobsForExport(jobs, customerName) {
@@ -99,20 +105,19 @@ function sortJobsForExport(jobs, customerName) {
 export function buildJobExportRows(jobs, { customerName }) {
   const rows = []
   let lastCustomerKey = null
-  let lastProjectKey = null
+  let lastGroupKey = null
   let customerRowId = 0
   let customerRowShown = false
   const sortedJobs = sortJobsForExport(jobs, customerName)
 
   for (const job of sortedJobs) {
     const key = customerKey(job)
-    const project = job.projectName || ''
-    const projectKey = `${key}::${project}`
+    const groupKey = buildExportGroupKey(job)
 
-    if (rows.length > 0 && projectKey !== lastProjectKey) {
-      addProjectSpacer(rows)
+    if (rows.length > 0 && groupKey !== lastGroupKey) {
+      addGroupSpacer(rows)
     }
-    lastProjectKey = projectKey
+    lastGroupKey = groupKey
 
     if (key !== lastCustomerKey) {
       lastCustomerKey = key
@@ -129,7 +134,7 @@ export function buildJobExportRows(jobs, { customerName }) {
     const width = job.widthMm ?? ''
     const height = job.lengthMm ?? ''
     const totalQty = Number(job.quantity) || 0
-    const delivered = job.isDC ? calcDcDeliveredQty(job.dc) : 0
+    const deliveredTotal = job.isDC ? calcDcDeliveredQty(job.dc) : 0
     const remaining = job.isDC
       ? (job.remainingDeliverQty ?? calcRemainingDeliverQty(job.quantity, job.dc))
       : totalQty
@@ -141,13 +146,13 @@ export function buildJobExportRows(jobs, { customerName }) {
       id,
       name,
       formatExportDate(job.date),
-      project,
+      job.projectName || '',
       pixel,
       width,
       height,
       totalQty,
       job.billNo || '',
-      delivered,
+      items.length ? '' : deliveredTotal,
       remaining,
       formatAmount(job.totalAmount),
     ])
@@ -161,11 +166,28 @@ export function buildJobExportRows(jobs, { customerName }) {
         '',
         '',
         '',
-        dcQty(item),
-        dcBillNo(item),
         '',
+        dcBillNo(item),
+        dcQty(item),
         '',
         formatAmount(dcAmount(job, item)),
+      ])
+    }
+
+    if (items.length > 0) {
+      rows.push([
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'Total',
+        deliveredTotal,
+        '',
+        '',
       ])
     }
   }
@@ -188,19 +210,39 @@ export const EXPORT_HEADERS = [
   'Amount',
 ]
 
-export function exportJobsToCsv(jobs, { customerName, includeHeaders = true }) {
+export async function exportJobsToExcel(jobs, { customerName, includeHeaders = true }) {
   const rows = buildJobExportRows(jobs, { customerName })
-  const allRows = includeHeaders ? [EXPORT_HEADERS, ...rows] : rows
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet('Jobs')
 
-  const csv = allRows
-    .map((row) => row.map(escapeCsv).join(','))
-    .join('\n')
+  if (includeHeaders) {
+    const headerRow = sheet.addRow(EXPORT_HEADERS)
+    headerRow.font = { bold: true }
+  }
 
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const billColIndex = EXPORT_HEADERS.indexOf('Bill') + 1
+
+  for (const row of rows) {
+    const added = sheet.addRow(row)
+    if (row[billColIndex - 1] === 'Total') {
+      added.eachCell((cell) => {
+        cell.font = { bold: true }
+      })
+    }
+  }
+
+  sheet.columns.forEach((column) => {
+    column.width = 14
+  })
+
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `jobs-export-${new Date().toISOString().slice(0, 10)}.csv`
+  link.download = `jobs-export-${new Date().toISOString().slice(0, 10)}.xlsx`
   link.click()
   URL.revokeObjectURL(url)
 }
