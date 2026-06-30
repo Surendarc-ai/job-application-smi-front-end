@@ -509,7 +509,11 @@ function customerInitials(customer) {
 
 function formatDate(d) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString()
+  const dt = new Date(d)
+  const day = String(dt.getDate()).padStart(2, '0')
+  const month = String(dt.getMonth() + 1).padStart(2, '0')
+  const year = dt.getFullYear()
+  return `${day}/${month}/${year}`
 }
 
 function dcLineAmount(item) {
