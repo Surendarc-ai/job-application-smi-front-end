@@ -58,6 +58,10 @@ function dcAmount(job, item) {
   return calcDcLineAmount(job, dcQty(item))
 }
 
+function dcAmountTotal(job, items) {
+  return items.reduce((sum, item) => sum + (Number(dcAmount(job, item)) || 0), 0)
+}
+
 function customerKey(job) {
   const c = job.customer
   if (c && typeof c === 'object' && c._id) return String(c._id)
@@ -65,8 +69,25 @@ function customerKey(job) {
   return ''
 }
 
-const EXPORT_COLUMN_COUNT = 12
+const EXPORT_COLUMN_COUNT = 14
 const GROUP_SPACER_ROWS = 2
+const TAX_RATE = 0.18
+
+function calcTax(amount) {
+  const num = Number(amount) || 0
+  return num ? Math.round(num * TAX_RATE * 100) / 100 : 0
+}
+
+function calcTotalWithTax(amount) {
+  const num = Number(amount) || 0
+  return num ? Math.round(num * (1 + TAX_RATE) * 100) / 100 : 0
+}
+
+function formatAmountCells(amount) {
+  const num = Number(amount) || 0
+  if (!num) return ['', '', '']
+  return [formatAmount(num), formatAmount(calcTax(num)), formatAmount(calcTotalWithTax(num))]
+}
 
 function emptyRow() {
   return Array(EXPORT_COLUMN_COUNT).fill('')
@@ -154,10 +175,13 @@ export function buildJobExportRows(jobs, { customerName }) {
       job.billNo || '',
       items.length ? '' : deliveredTotal,
       remaining,
-      formatAmount(job.totalAmount),
+      '',
+      '',
+      '',
     ])
 
     for (const item of items) {
+      const [amount, tax, totalAmount] = formatAmountCells(dcAmount(job, item))
       rows.push([
         '',
         '',
@@ -170,11 +194,14 @@ export function buildJobExportRows(jobs, { customerName }) {
         dcBillNo(item),
         dcQty(item),
         '',
-        formatAmount(dcAmount(job, item)),
+        amount,
+        tax,
+        totalAmount,
       ])
     }
 
     if (items.length > 0) {
+      const [amount, tax, totalAmount] = formatAmountCells(dcAmountTotal(job, items))
       rows.push([
         '',
         '',
@@ -187,7 +214,9 @@ export function buildJobExportRows(jobs, { customerName }) {
         'Total',
         deliveredTotal,
         '',
-        '',
+        amount,
+        tax,
+        totalAmount,
       ])
     }
   }
@@ -208,6 +237,8 @@ export const EXPORT_HEADERS = [
   'Delivered',
   'Remaining',
   'Amount',
+  'Tax 18%',
+  'Total Amount',
 ]
 
 export async function exportJobsToExcel(jobs, { customerName, includeHeaders = true }) {

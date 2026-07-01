@@ -82,19 +82,19 @@
                 <input v-model="form.pixel" type="text" placeholder="e.g. 300dpi" class="input-field" />
               </div>
               <div>
-                <label class="label-field uppercase">Quantity</label>
-                <input v-model="form.quantity" type="number" min="0" step="1" placeholder="e.g. 10" class="input-field" />
-              </div>
-              <div>
                 <label class="label-field uppercase">Width (mm)</label>
                 <input v-model="form.widthMm" type="number" min="0" step="0.01" placeholder="e.g. 2" class="input-field" />
+              </div>
+              <div>
+                <label class="label-field uppercase">Length (mm)</label>
+                <input v-model="form.lengthMm" type="number" min="0" step="0.01" placeholder="e.g. 4" class="input-field" />
               </div>
             </div>
 
             <div class="job-form-grid">
               <div>
-                <label class="label-field uppercase">Length (mm)</label>
-                <input v-model="form.lengthMm" type="number" min="0" step="0.01" placeholder="e.g. 4" class="input-field" />
+                <label class="label-field uppercase">Quantity</label>
+                <input v-model="form.quantity" type="number" min="0" step="1" placeholder="e.g. 10" class="input-field" />
               </div>
               <div>
                 <label class="label-field uppercase">Price/Sqft (₹)</label>
@@ -140,9 +140,14 @@
                     </div>
                     <div>
                       <label class="label-field uppercase">Amount (₹)</label>
-                      <div class="input-field bg-slate-50 text-slate-700 cursor-not-allowed">
-                        {{ dcLineAmount(item) }}
-                      </div>
+                      <input
+                        v-model="item.amount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        class="input-field"
+                      />
                     </div>
                   </div>
                   <div v-if="form.dc.length > 1" class="flex justify-end mt-2">
@@ -183,8 +188,15 @@
               <div class="job-summary-item job-summary-item-single">
                 <div class="job-summary-block">
                   <span class="job-summary-label">Total Amount (₹)</span>
-                  <span class="job-summary-hint">Tot Sqft × Price/Sqft</span>
-                  <span class="job-summary-total">{{ formatNum(totalAmount) }}</span>
+                  <span class="job-summary-hint">Tot Sqft × Price/Sqft (editable)</span>
+                  <input
+                    v-model="form.totalAmount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    class="job-summary-total-input"
+                  />
                 </div>
               </div>
             </div>
@@ -328,11 +340,13 @@ const saving = ref(false)
 const formError = ref('')
 const openMenuId = ref(null)
 const menuStyle = ref({})
+const skipTotalAmountSync = ref(false)
 
 const emptyDcItem = () => ({
   date: '',
   billNo: '',
   quantity: '',
+  amount: '',
 })
 
 const emptyForm = () => {
@@ -351,6 +365,7 @@ const emptyForm = () => {
     lengthMm: '',
     widthMm: '',
     pricePerSqft: '',
+    totalAmount: '',
   }
 }
 
@@ -361,7 +376,31 @@ const totals = computed(() => calcJobTotals(form))
 const totSizeSqFt = computed(() => totals.value.totSizeSqFt)
 const roundedTotSizeSqFt = computed(() => totals.value.roundedTotSizeSqFt)
 const totSqft = computed(() => totals.value.totSqft)
-const totalAmount = computed(() => totals.value.totalAmount)
+
+watch(
+  () => [form.quantity, form.lengthMm, form.widthMm, form.pricePerSqft],
+  () => {
+    if (skipTotalAmountSync.value) return
+    const calculated = totals.value.totalAmount
+    form.totalAmount = calculated || ''
+    syncDcAmounts()
+  },
+)
+
+watch(
+  () => form.dc.map((item) => item.quantity),
+  () => {
+    if (skipTotalAmountSync.value) return
+    syncDcAmounts()
+  },
+)
+
+function syncDcAmounts() {
+  for (const item of form.dc) {
+    const calculated = calcDcLineAmount(form, item.quantity)
+    item.amount = calculated || ''
+  }
+}
 
 const deliveredDcQty = computed(() => calcDcDeliveredQty(form.dc))
 const remainingDcQty = computed(() => calcRemainingDeliverQty(form.quantity, form.dc))
@@ -516,11 +555,6 @@ function formatDate(d) {
   return `${day}/${month}/${year}`
 }
 
-function dcLineAmount(item) {
-  const amount = calcDcLineAmount(form, item.quantity)
-  return amount ? `₹${amount.toFixed(2)}` : '—'
-}
-
 function formatDcItem(item, job = null) {
   if (typeof item === 'string') return item
   const amount = job
@@ -546,12 +580,13 @@ function normalizeDcFormItems(dc) {
   if (!Array.isArray(dc) || !dc.length) return [emptyDcItem()]
   return dc.map((item) => {
     if (typeof item === 'string') {
-      return { date: '', billNo: item, quantity: '' }
+      return { date: '', billNo: item, quantity: '', amount: '' }
     }
     return {
       date: item.date ? new Date(item.date).toISOString().slice(0, 10) : '',
       billNo: item.billNo || '',
       quantity: item.quantity ?? '',
+      amount: item.amount ?? '',
     }
   })
 }
@@ -650,6 +685,7 @@ function openModal(job = null) {
   loadModelOptions()
   editingId.value = job?._id || null
   editingCustomer.value = job?.customer && typeof job.customer === 'object' ? job.customer : null
+  skipTotalAmountSync.value = true
   Object.assign(form, job ? {
     date: job.date ? new Date(job.date).toISOString().slice(0, 10) : '',
     customer: job.customer?._id || job.customer || '',
@@ -664,7 +700,11 @@ function openModal(job = null) {
     lengthMm: job.lengthMm ?? '',
     widthMm: job.widthMm ?? '',
     pricePerSqft: job.pricePerSqft ?? '',
+    totalAmount: job.totalAmount ?? '',
   } : emptyForm())
+  nextTick(() => {
+    skipTotalAmountSync.value = false
+  })
   showModal.value = true
 }
 

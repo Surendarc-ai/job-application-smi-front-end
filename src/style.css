@@ -131,6 +131,10 @@
     @apply text-lg font-semibold text-emerald-600;
   }
 
+  .job-summary-total-input {
+    @apply w-full max-w-[10rem] text-center text-lg font-semibold text-emerald-600 border border-emerald-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400;
+  }
+
   .data-table {
     @apply w-full border-collapse;
   }

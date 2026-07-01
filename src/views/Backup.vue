@@ -2,14 +2,14 @@
   <div class="page-card max-w-3xl">
     <h1 class="text-xl font-semibold text-slate-800 m-0 mb-2">Data Backup</h1>
     <p class="text-sm text-slate-500 mb-6">
-      Download all Customers, Models, and Jobs to Excel. If data is corrupted, upload the same backup file to restore it.
+      Download all data to Excel. If data is corrupted, upload the same backup file to restore it.
     </p>
 
     <div class="space-y-5">
       <section class="border border-slate-200 rounded-xl p-5">
         <h2 class="text-base font-semibold text-slate-800 m-0 mb-2">Download Backup</h2>
         <p class="text-sm text-slate-500 mb-4">
-          Creates an Excel file with 3 sheets: Customers, Models, and Jobs.
+          Creates an Excel file with sheets: Companies, Customers, Items, Jobs, Product_Models, Roles, and Users.
         </p>
         <button
           type="button"
@@ -21,7 +21,10 @@
           {{ exporting ? 'Preparing backup...' : 'Download Excel Backup' }}
         </button>
         <p v-if="exportCounts" class="success-msg mt-3 mb-0">
-          Exported {{ exportCounts.customers }} customers, {{ exportCounts.models }} models, {{ exportCounts.jobs }} jobs.
+          Exported {{ exportCounts.companies ?? 0 }} companies, {{ exportCounts.customers ?? 0 }} customers,
+          {{ exportCounts.items ?? 0 }} items, {{ exportCounts.jobs ?? 0 }} jobs,
+          {{ exportCounts.product_models ?? 0 }} product models, {{ exportCounts.roles ?? 0 }} roles,
+          {{ exportCounts.users ?? 0 }} users.
         </p>
       </section>
 
