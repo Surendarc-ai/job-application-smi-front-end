@@ -252,6 +252,7 @@ export async function exportJobsToExcel(jobs, { customerName, includeHeaders = t
   }
 
   const billColIndex = EXPORT_HEADERS.indexOf('Bill') + 1
+  const remainingColIndex = EXPORT_HEADERS.indexOf('Remaining') + 1
 
   for (const row of rows) {
     const added = sheet.addRow(row)
@@ -259,6 +260,16 @@ export async function exportJobsToExcel(jobs, { customerName, includeHeaders = t
       added.eachCell((cell) => {
         cell.font = { bold: true }
       })
+    }
+    const remainingValue = Number(row[remainingColIndex - 1])
+    if (remainingValue !== 0) {
+      const remainingCell = added.getCell(remainingColIndex)
+      remainingCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFF0000' },
+      }
+      remainingCell.font = { color: { argb: 'FFFFFFFF' }, bold: true }
     }
   }
 
